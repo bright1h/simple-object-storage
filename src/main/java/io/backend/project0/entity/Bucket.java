@@ -1,6 +1,7 @@
-package io.backend.project0;
+package io.backend.project0.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
@@ -10,18 +11,18 @@ import java.util.List;
 public class Bucket {
 
     @Id
-    private String name;
-
-
+    private String bucketName;
     private long created;
     private long modified;
+
+    @DBRef
     private List<Object> objects;
 
-    public Bucket(long created, long modified, String name){
+    public Bucket(long created, long modified, String bucketName){
         super();
         this.created = created;
         this.modified =modified;
-        this.name= name;
+        this.bucketName= bucketName;
         this.objects = new ArrayList<>();
     }
 
@@ -34,11 +35,11 @@ public class Bucket {
     }
 
     public String getName() {
-        return name;
+        return bucketName;
     }
 
     public void setName(String name) {
-        this.name = name;
+        this.bucketName = name;
     }
 
     public long getModified() {
