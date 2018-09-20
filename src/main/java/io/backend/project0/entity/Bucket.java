@@ -16,14 +16,14 @@ public class Bucket {
     private long modified;
 
     @DBRef
-    private List<Object> objects;
+    private List<ObjectStored> objectStoreds;
 
     public Bucket(long created, long modified, String bucketName){
         super();
         this.created = created;
         this.modified =modified;
         this.bucketName= bucketName;
-        this.objects = new ArrayList<>();
+        this.objectStoreds = new ArrayList<>();
     }
 
     public long getCreated() {
@@ -34,12 +34,12 @@ public class Bucket {
         this.created = created;
     }
 
-    public String getName() {
+    public String getBucketName() {
         return bucketName;
     }
 
-    public void setName(String name) {
-        this.bucketName = name;
+    public void setBucketName(String bucketName) {
+        this.bucketName = bucketName;
     }
 
     public long getModified() {
@@ -50,11 +50,11 @@ public class Bucket {
         this.modified = modified;
     }
 
-    public List<Object> getObjects() {
-        return objects;
+    public List<ObjectStored> getObjectStoreds() {
+        return objectStoreds;
     }
 
-    public void setObjects(List<Object> objects) {
-        this.objects = objects;
+    public void setObjectStoreds(List<ObjectStored> objectStoreds) {
+        this.objectStoreds = objectStoreds;
     }
 }

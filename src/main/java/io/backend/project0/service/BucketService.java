@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -19,16 +18,11 @@ public class BucketService {
 
     //Get All Buckets
     public List<Bucket> getAllBucket(){
-//        List<Bucket> buckets = new ArrayList<>();
-//        bucketRepository.findAll().forEach(buckets::add);
-//        return buckets;
         return bucketRepository.findAll();
     }
 
     //Create
     public Bucket create(String bucketName){
-//        Bucket b = bucketRepository.findBucketByName(bucketName);
-//        if(b!=null){
         if(!bucketRepository.existsById(bucketName)){
             long createdTime = System.currentTimeMillis();
             Bucket bucket = new Bucket(createdTime, createdTime,bucketName);

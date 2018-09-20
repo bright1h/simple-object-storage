@@ -12,7 +12,7 @@ import java.util.List;
 //import java.util.List;
 
 @Document
-public class Object {
+public class ObjectStored {
 
 
 //    @Id
@@ -33,7 +33,7 @@ public class Object {
 
     private List<ObjectPart> objectParts;
 
-    public Object(String objectName, long created,long modified,String bucketName){
+    public ObjectStored(String objectName, long created, long modified, String bucketName){
         super();
         this.objectName=objectName;
         this.created=created;

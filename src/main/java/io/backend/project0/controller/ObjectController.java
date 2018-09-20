@@ -1,25 +1,27 @@
 package io.backend.project0.controller;
 
-import io.backend.project0.entity.Object;
+import io.backend.project0.entity.ObjectStored;
 import io.backend.project0.entity.ObjectPart;
 import io.backend.project0.service.BucketService;
-import io.backend.project0.service.ObjectService;
+import io.backend.project0.service.ObjectStoredService;
 import io.backend.project0.service.ObjectPartService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
 
 @RestController
 public class ObjectController {
 
     @Autowired
-    private ObjectService objectService;
+    private ObjectStoredService objectStoredService;
 
     @Autowired
     private BucketService bucketService;
@@ -33,8 +35,8 @@ public class ObjectController {
     }
 
     @RequestMapping("/objects")
-    public List<Object> getAllObject(){
-        return objectService.getAllObject();
+    public List<ObjectStored> getAllObject(){
+        return objectStoredService.getAllObject();
     }
 
     @RequestMapping(method = RequestMethod.POST,value = "/{bucketName}/{objectName}",params = "create")
@@ -45,9 +47,9 @@ public class ObjectController {
 
     ){
         if(!bucketService.isBucketNameExist(bucketName))return ResponseEntity.badRequest().body(null);
-        Object object = objectService.createTicket(objectName,bucketName);
-        if(object==null)return ResponseEntity.badRequest().body("fail");
-        return ResponseEntity.ok(object);
+        ObjectStored objectStored = objectStoredService.createTicket(objectName,bucketName);
+        if(objectStored ==null)return ResponseEntity.badRequest().body(null);
+        return ResponseEntity.ok(null);
     }
 
     @RequestMapping(method = RequestMethod.PUT,value = "/{bucketName}/{objectName}", params = "partNumber")
@@ -63,36 +65,41 @@ public class ObjectController {
         InputStream inputStream = request.getInputStream();
         byte[] content = IOUtils.toByteArray(inputStream);
 
+        HashMap<String, Object> responseJSON = new HashMap<>();
+        responseJSON.put("md5",md5);
+        responseJSON.put("length",contentLength);
+        responseJSON.put("partNumber",partNumber);
+
         if(contentLength !=  content.length){
-            return ResponseEntity.badRequest().body("Size problem");
+            responseJSON.put("error","LengthMismatched");
+            return ResponseEntity.badRequest().body(responseJSON);
         }
 
         String md5Hex = DigestUtils.md5Hex(content);
 
-        System.out.println("hexmd5: "+md5Hex);
-        System.out.println("md5: " +md5);
         if(!md5Hex.equals(md5)){
-            return ResponseEntity.badRequest().body("md5 problem");
+            responseJSON.put("error","MD5Mismatched");
+            return ResponseEntity.badRequest().body(responseJSON);
         }
 
-        System.out.println("partNumber: "+partNumber);
         if(partNumber <1 || partNumber>10000){
-            return ResponseEntity.badRequest().body("partNumber problem");
+            responseJSON.put("error","InvalidPartNumber");
+            return ResponseEntity.badRequest().body(responseJSON);
         }
 
-        if(!objectService.validateObjectName(objectName)){
-            return ResponseEntity.badRequest().body("objectName");
+        if(!objectStoredService.validateObjectName(objectName)){
+            responseJSON.put("error","InvalidObjectName");
+            return ResponseEntity.badRequest().body(responseJSON);
         }
 
         if(!bucketService.isBucketNameExist(bucketName)){
-            return ResponseEntity.badRequest().body("bucket not exist");
+            responseJSON.put("error","InvalidBucket");
+            return ResponseEntity.badRequest().body(responseJSON);
         }
 //
         ObjectPart objectPart = objectPartService.uploadPart(objectName,content.length,md5,bucketName,partNumber,content);
-        if(objectPart ==null)return ResponseEntity.badRequest().body("fail");
-//        json { "md5": {md5}, "length": 1024, "partNumber": 1 }
-//        json { "md5": {md5}, "length": 1024, "partNumber": 1 "error": "LengthMismatched|MD5Mismatched|InvalidPartNumber|InvalidObjectName|InvalidBucket" }
-        return ResponseEntity.ok("success");
+        if(objectPart ==null)return ResponseEntity.badRequest().body("UnexpectedError");
+        return ResponseEntity.ok(responseJSON);
     }
 
     @RequestMapping(method = RequestMethod.POST,value = "/{bucketName}/{objectName}",params = "complete")
@@ -102,25 +109,45 @@ public class ObjectController {
             @RequestParam(required = true) String complete
 
     ){
-//        bucketService.completeMultiPartUpload(bucketName,objectName);
-        if (!objectService.validateObjectName(objectName)) return ResponseEntity.badRequest().body(null);
-        if (!bucketService.isBucketNameExist(bucketName)) return ResponseEntity.badRequest().body(null);
-        Object object =objectService.complete(objectName,bucketName);
-        return ResponseEntity.ok(null);
+        HashMap<String, Object> responseJSON = new HashMap<>();
+        responseJSON.put("name",objectName);
+        if (!objectStoredService.validateObjectName(objectName)){
+            responseJSON.put("error","InvalidObjectName");
+            return ResponseEntity.badRequest().body(responseJSON);
+        }
+        if (!bucketService.isBucketNameExist(bucketName)){
+            responseJSON.put("error","InvalidBucket");
+            return ResponseEntity.badRequest().body(responseJSON);
+        }
+        ObjectStored objectStored = objectStoredService.complete(objectName,bucketName);
+        if (objectStored==null)ResponseEntity.badRequest().body("UnexpectedError");
+        responseJSON.put("eTag",objectStored.geteTag());
+
+        return ResponseEntity.ok(responseJSON);
     }
 
     @RequestMapping(method = RequestMethod.DELETE,value = "/{bucketName}/{objectName}",params = "partNumber")
     public ResponseEntity deletePart(
             @PathVariable String bucketName,
             @PathVariable String objectName,
-            @RequestParam(required = true) String partNumber
+            @RequestParam(required = true) int partNumber
 
     ){
-//        bucketService.uploadAllParts(bucketName,objectName);
+        if (!objectStoredService.validateObjectName(objectName)){
+            return ResponseEntity.badRequest().body(null);
+        }
+        if (!bucketService.isBucketNameExist(bucketName)){
+            return ResponseEntity.badRequest().body(null);
+        }
+        if(partNumber <1 || partNumber>10000){
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        ObjectPart objectPart = objectPartService.deletePart(objectName,bucketName,partNumber);
+        if (objectPart ==null) return ResponseEntity.badRequest().body(null);
         return ResponseEntity.ok(null);
     }
-//
-//
+
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}")
     @ResponseBody
     public ResponseEntity downloadObject(
@@ -138,10 +165,12 @@ public class ObjectController {
             @PathVariable String bucketName,
             @PathVariable String objectName,
             @RequestParam(required = true) String metadata,
-            @RequestParam(required = true) String key
+            @RequestParam(required = true) String key,
+            String value
 
     ){
-//        bucketService.uploadAllParts(bucketName,objectName);
+        if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
+        objectStoredService.addAndupdateMetadata(objectName,bucketName,key,value);
         return ResponseEntity.ok(null);
     }
 
@@ -154,11 +183,11 @@ public class ObjectController {
             @RequestParam(required = true) String key
 
     ){
-//        bucketService.uploadAllParts(bucketName,objectName);
+        if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
+        objectStoredService.deleteMetadata(objectName,bucketName,key);
         return ResponseEntity.ok(null);
     }
 
-//
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}",params = {"metadata","key"})
     public ResponseEntity getMetadataByKey(
             @PathVariable String bucketName,
@@ -167,8 +196,11 @@ public class ObjectController {
             @RequestParam(value = "key",required = true) String key
 
     ){
-//        bucketService.uploadAllParts(bucketName,objectName);
-        return ResponseEntity.ok(null);
+        if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
+        HashMap<String, Object> responseJSON = new HashMap<>();
+        String ret = objectStoredService.getMetadata(objectName,bucketName,key);
+        if(ret != "") responseJSON.put(key,ret);
+        return ResponseEntity.ok(responseJSON);
     }
 
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}",params = "metadata")
@@ -178,8 +210,8 @@ public class ObjectController {
             @RequestParam(required = true) String metadata
 
     ){
-//        bucketService.uploadAllParts(bucketName,objectName);
-        return ResponseEntity.ok(null);
+        if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(objectStoredService.getAllMetadata(objectName,bucketName));
     }
 
 }

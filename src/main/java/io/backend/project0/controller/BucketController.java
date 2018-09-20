@@ -1,6 +1,5 @@
 package io.backend.project0.controller;
 
-import io.backend.project0.StorageDir;
 import io.backend.project0.entity.Bucket;
 import io.backend.project0.service.BucketService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 
 @RestController
@@ -31,10 +30,15 @@ public class BucketController {
         if(!bucketService.validateBucketName(bucketName)){
             return ResponseEntity.badRequest().body("Invalid bucket's name");
         }
+
         Bucket bucket =bucketService.create(bucketName);
         if(bucket == null) return ResponseEntity.badRequest().body("Already used");
 
-        return ResponseEntity.ok(bucket);
+        HashMap<String, Object> responseJSON = new HashMap<>();
+        responseJSON.put("created",bucket.getCreated());
+        responseJSON.put("modified",bucket.getModified());
+        responseJSON.put("name",bucket.getBucketName());
+        return ResponseEntity.ok(responseJSON);
     }
 
     @RequestMapping(method = RequestMethod.DELETE, value = "/{bucketName}")
@@ -44,10 +48,10 @@ public class BucketController {
 
     ){
         if(!bucketService.isBucketNameExist(bucketName)){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bucket's name does not exist");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
         bucketService.delete(bucketName);
-        return ResponseEntity.ok("");
+        return ResponseEntity.ok(null);
     }
 
     @RequestMapping(method = RequestMethod.GET, value = "/{bucketName}")
@@ -56,31 +60,15 @@ public class BucketController {
             @RequestParam(value = "list",required = true) String param
     ){
         Bucket bucket =bucketService.getBucket(bucketName);
-        if (bucket==null)return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bucket's name does not exist");
-        return ResponseEntity.ok(bucket);
+        if (bucket==null)return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+
+        HashMap<String, Object> responseJSON = new HashMap<>();
+        responseJSON.put("created",bucket.getCreated());
+        responseJSON.put("modified",bucket.getModified());
+        responseJSON.put("name",bucket.getBucketName());
+        responseJSON.put("objects", bucket.getObjectStoreds());
+
+        return ResponseEntity.ok(responseJSON);
     }
 
-//    @RequestMapping("/upload")
-//    public String upload(Model model, @RequestParam("files") MultipartFile[] files,@RequestHeader("Content-Length")String length){
-//        System.out.println(length);
-////        System.out.println(md5);
-//        StringBuilder fileNames = new StringBuilder();
-//        for(MultipartFile file : files){
-//            try {
-//                System.out.println(file.getBytes());
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//            Path fileNameAndPath = Paths.get(uploadDirectory,file.getOriginalFilename());
-//            System.out.println(fileNameAndPath.getParent().toUri());
-//            fileNames.append(file.getOriginalFilename());
-//            try{
-//                Files.write(fileNameAndPath,file.getBytes());
-//            }catch (IOException e){
-//                e.printStackTrace();
-//            }
-//            model.addAttribute("msg","Successfully upload files " + fileNames.toString());
-//        }
-//        return "uploaded";
-//    }
 }
