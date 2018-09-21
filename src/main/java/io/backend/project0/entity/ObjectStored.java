@@ -1,5 +1,6 @@
 package io.backend.project0.entity;
 
+import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 //import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -14,33 +15,25 @@ import java.util.List;
 @Document
 public class ObjectStored {
 
-
-//    @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
-//    private long objecttId;
-
     @Id
     private String objectName;
-
     private long created;
     private long modified;
-    private HashMap<String,String> eTag;
+    private String eTag;
     private HashMap<String,String> metadata;
     private String bucketName;
     private String path;
     private String md5;
     private boolean complete;
-
-    private List<ObjectPart> objectParts;
+    private long size;
 
     public ObjectStored(String objectName, long created, long modified, String bucketName){
-        super();
         this.objectName=objectName;
         this.created=created;
         this.modified=modified;
-        this.eTag= new HashMap<>();
         this.bucketName = bucketName;
         this.complete=false;
+        this.metadata=new HashMap<>();
     }
 
     public String getObjectName() {
@@ -75,11 +68,11 @@ public class ObjectStored {
         this.modified = modified;
     }
 
-    public HashMap<String, String> geteTag() {
+    public String geteTag() {
         return eTag;
     }
 
-    public void seteTag(HashMap<String, String> eTag) {
+    public void seteTag(String eTag) {
         this.eTag = eTag;
     }
 
@@ -107,19 +100,19 @@ public class ObjectStored {
         this.complete = complete;
     }
 
-    public List<ObjectPart> getObjectParts() {
-        return objectParts;
-    }
-
-    public void setObjectParts(List<ObjectPart> objectParts) {
-        this.objectParts = objectParts;
-    }
-
     public String getPath() {
         return path;
     }
 
     public void setPath(String path) {
         this.path = path;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public void setSize(long size) {
+        this.size = size;
     }
 }

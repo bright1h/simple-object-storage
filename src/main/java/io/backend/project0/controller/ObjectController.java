@@ -2,20 +2,20 @@ package io.backend.project0.controller;
 
 import io.backend.project0.entity.ObjectStored;
 import io.backend.project0.entity.ObjectPart;
+import io.backend.project0.repository.ObjectStoredRepository;
 import io.backend.project0.service.BucketService;
 import io.backend.project0.service.ObjectStoredService;
 import io.backend.project0.service.ObjectPartService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 @RestController
 public class ObjectController {
@@ -96,9 +96,17 @@ public class ObjectController {
             responseJSON.put("error","InvalidBucket");
             return ResponseEntity.badRequest().body(responseJSON);
         }
-//
+
+        if(!objectStoredService.isObjectExist(objectName,bucketName)){
+            responseJSON.put("error","ObjectNotFound");
+            return ResponseEntity.badRequest().body(responseJSON);
+        }
+
         ObjectPart objectPart = objectPartService.uploadPart(objectName,content.length,md5,bucketName,partNumber,content);
-        if(objectPart ==null)return ResponseEntity.badRequest().body("UnexpectedError");
+        if(objectPart ==null){
+            responseJSON.put("error","ObjectUploadComplete");
+            return ResponseEntity.badRequest().body(responseJSON);
+        }
         return ResponseEntity.ok(responseJSON);
     }
 
@@ -119,6 +127,11 @@ public class ObjectController {
             responseJSON.put("error","InvalidBucket");
             return ResponseEntity.badRequest().body(responseJSON);
         }
+        if(!objectStoredService.isObjectExist(objectName,bucketName)){
+            responseJSON.put("error","ObjectNotFound");
+            return ResponseEntity.badRequest().body(responseJSON);
+        }
+
         ObjectStored objectStored = objectStoredService.complete(objectName,bucketName);
         if (objectStored==null)ResponseEntity.badRequest().body("UnexpectedError");
         responseJSON.put("eTag",objectStored.geteTag());
@@ -133,13 +146,8 @@ public class ObjectController {
             @RequestParam(required = true) int partNumber
 
     ){
-        if (!objectStoredService.validateObjectName(objectName)){
-            return ResponseEntity.badRequest().body(null);
-        }
-        if (!bucketService.isBucketNameExist(bucketName)){
-            return ResponseEntity.badRequest().body(null);
-        }
-        if(partNumber <1 || partNumber>10000){
+
+        if(partNumber <1 || partNumber>10000 || !objectPartService.isObjectPartExist(objectName,bucketName,partNumber)){
             return ResponseEntity.badRequest().body(null);
         }
 
@@ -148,16 +156,61 @@ public class ObjectController {
         return ResponseEntity.ok(null);
     }
 
+    @RequestMapping(method = RequestMethod.DELETE,value = "/{bucketName}/{objectName}")
+    public ResponseEntity deleteObject(
+            @PathVariable String bucketName,
+            @PathVariable String objectName
+    ){
+
+        if (!objectStoredService.isObjectExist(objectName,bucketName))return ResponseEntity.badRequest().body(null);
+        objectStoredService.deleteObject(objectName,bucketName);
+        return ResponseEntity.ok(null);
+    }
+
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}")
     @ResponseBody
     public ResponseEntity downloadObject(
             @PathVariable String bucketName,
-            @PathVariable String objectName
-    ){
-//        Resource file = storageService.loadAsResource(filename);
-//        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
-//                "attachment; filename=\"" + file.getFilename() + "\"").body(file);
-        return null;
+            @PathVariable String objectName,
+            HttpServletRequest request
+    ) throws IOException {
+
+        ObjectStored objectStored = objectStoredService.getObject(objectName,bucketName);
+
+        if(objectStored != null && objectStored.isComplete()){
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
+            List<ObjectPart> objectParts = objectPartService.getPartsByBucketNameAndObjectName(bucketName,objectName);
+            objectParts.sort(Comparator.comparingInt(ObjectPart::getPartNumber));
+
+            for(ObjectPart op : objectParts){
+                InputStream inputstream = new FileInputStream(op.getPath());
+                outputStream.write(IOUtils.toByteArray(inputstream));
+            }
+
+            String range = request.getHeader("range");
+            byte[] bytes = outputStream.toByteArray();
+            if(range==null) range = "0-"+bytes.length;
+            else{
+                String[] r = range.split("-");
+                if(r.length ==2){
+                    int from = Integer.parseInt(r[0]);
+                    int to = Integer.parseInt(r[1]);
+                    if (to<from || from<0 || from> bytes.length || to>bytes.length )return ResponseEntity.badRequest().body("Invalid Range");
+                    bytes = Arrays.copyOfRange(bytes,from,to+1);
+
+                }else{
+                    return ResponseEntity.badRequest().body("Invalid Range");
+                }
+
+            }
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + objectStored.getObjectName()+"\"")
+                    .header(HttpHeaders.ACCEPT_RANGES,range)
+                    .contentLength(bytes.length)
+                    .eTag(objectStored.geteTag())
+                    .body(bytes);
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @RequestMapping(method = RequestMethod.PUT,value = "/{bucketName}/{objectName}",params = {"metadata","key"})
@@ -166,11 +219,13 @@ public class ObjectController {
             @PathVariable String objectName,
             @RequestParam(required = true) String metadata,
             @RequestParam(required = true) String key,
-            String value
+            HttpServletRequest request
 
-    ){
+    ) throws IOException {
         if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
-        objectStoredService.addAndupdateMetadata(objectName,bucketName,key,value);
+        InputStream inputStream = request.getInputStream();
+        String value = IOUtils.toString(inputStream,"UTF-8");
+        objectStoredService.addAndUpdateMetadata(objectName,bucketName,key,value);
         return ResponseEntity.ok(null);
     }
 

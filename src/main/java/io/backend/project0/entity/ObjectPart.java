@@ -21,7 +21,6 @@ public class ObjectPart {
 
 
     public ObjectPart(String partName, long partSize, String partMd5, int partNumber, String path, String bucketName, String objectName){
-        super();
         this.partName=partName;
         this.partSize=partSize;
         this.partMd5=partMd5;

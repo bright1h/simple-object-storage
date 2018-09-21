@@ -27,36 +27,49 @@ public class ObjectPartService {
         return objectPartRepository.findAll();
     }
 
-    public ObjectPart uploadPart(String name, long partSize, String partMd5, String bucketName, int partNumber, byte[] file){
-        ObjectStored objectStored = objectStoredRepository.findObjectByObjectNameAndBucketName(name,bucketName);
+    public ObjectPart uploadPart(String objectName, long partSize, String partMd5, String bucketName, int partNumber, byte[] file){
+        ObjectStored objectStored = objectStoredRepository.findByObjectNameAndBucketName(objectName,bucketName);
         if(!objectStored.isComplete()) {
-            String path = StorageDir.storage + '/' + bucketName + '/';
-            String[] splittedName = name.split("\\.");
-            System.out.println(splittedName);
-            //Don't care about extension(for now?)
+            String[] splittedName = objectName.split("\\.");
             String partName = splittedName[0] + '-' + partNumber;
-            ObjectPart objectPart = new ObjectPart(partName, partSize, partMd5, partNumber, path, bucketName, name);
-            objectPartRepository.save(objectPart);
+            String path = StorageDir.storage + '/' + bucketName + '/' +partName ;
 
-            Path fileNameAndPath = Paths.get(path + partName);
+            ObjectPart objectPart = objectPartRepository.findByBucketNameAndObjectNameAndPartNumber(bucketName,objectName,partNumber);
+            if(objectPart !=null){
+                objectPartRepository.delete(objectPart);
+            }
+            objectPart = new ObjectPart(partName, partSize, partMd5, partNumber, path, bucketName, objectName);
+
+            Path fileNameAndPath = Paths.get(path);
             try {
                 Files.write(fileNameAndPath, file);
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            objectPartRepository.save(objectPart);
             return objectPart;
+
         }
         return null;
     }
 
-    public ObjectPart deletePart(String name, String bucketName,int partNumber){
-        ObjectStored objectStored = objectStoredRepository.findObjectByObjectNameAndBucketName(name,bucketName);
+    public ObjectPart deletePart(String objectName, String bucketName,int partNumber){
+        ObjectStored objectStored = objectStoredRepository.findByObjectNameAndBucketName(objectName,bucketName);
         if(objectStored == null || objectStored.isComplete()){
             return null;
         }
-        ObjectPart objectPart = objectPartRepository.findByBucketNameAndObjectNameAndPartNumber(bucketName,name,partNumber);
+        ObjectPart objectPart = objectPartRepository.findByBucketNameAndObjectNameAndPartNumber(bucketName,objectName,partNumber);
         objectPartRepository.delete(objectPart);
         return objectPart;
+    }
+
+    public boolean isObjectPartExist(String name,String bucketName,int partNumber){
+        return objectPartRepository.findByBucketNameAndObjectNameAndPartNumber(bucketName,name,partNumber) !=null;
+    }
+
+    public List<ObjectPart> getPartsByBucketNameAndObjectName(String bucketName,String objectName){
+        return objectPartRepository.findAllByBucketNameAndObjectName(bucketName,objectName);
     }
 
 }

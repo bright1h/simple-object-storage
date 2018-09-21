@@ -12,4 +12,8 @@ public interface ObjectPartRepository extends MongoRepository<ObjectPart, Long> 
     public ObjectPart findByBucketNameAndObjectNameAndPartNumber(String bucketName, String objectName, int partNumber);
 
     public List<ObjectPart> findAllByBucketNameAndObjectName(String bucketName, String objectName );
+
+    public void deleteAllByBucketName(String bucketName);
+
+    public void deleteAllByBucketNameAndObjectName(String bucketName, String objectName);
 }
