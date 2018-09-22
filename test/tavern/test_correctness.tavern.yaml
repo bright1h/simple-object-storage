@@ -1,0 +1,292 @@
+---
+test_name: Test for SOS's APIs correctness
+
+# Create Bucket
+stages:
+  - name: Create Bucket
+    request:
+      url: http://localhost:8080/ctest
+      params:
+        create: ""
+      method : POST
+    response:
+      status_code: 200
+      body:
+        created : !anyint
+        modified : !anyint
+        name: "ctest"
+
+  - name: Check Duplicated Bucket
+    request:
+      url: http://localhost:8080/ctest
+      params:
+        create: ""
+      method : POST
+    response:
+      status_code: 400
+
+# Create Upload Ticket
+stages:
+  - name: Create Upload Ticket (objectName = {"test.jpg"})
+    request:
+      url: http://localhost:8080/ctest/test.jpg
+      params:
+        create : ""
+      method: GET
+    response:
+      status_code: 200
+
+  - name: Create Upload Ticket (objectName = {"test.jpg"} - Already Create)
+    request:
+      url: http://localhost:8080/ctest/test.jpg
+      params:
+        create : ""
+      method: GET
+    response:
+      status_code: 400
+
+  - name: Create Upload Ticket (objectName = {"test.jpg"} - Bucket Not Found)
+    request:
+      url: http://localhost:8080/notfound/test.jpg
+      params:
+        create : ""
+      method: GET
+    response:
+      status_code: 400
+
+# Upload Ticket
+stages:
+  - name: Upload Objecct Part1
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: GET
+    response:
+      status_code: 200
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+
+  # Fix Later
+  - name: Upload Object Part1 - Invalid Bucket
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: PUT
+    response:
+      status_code: 400
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+        error : "InvalidBucket"
+
+  # Fix Later
+  - name: Upload Object Part1 - Invalid Object Name
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: PUT
+    response:
+      status_code: 400
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+        error : "InvalidObjectName"
+
+  # Fix Later
+  - name: Upload Object Part1 - Invalid Part Number
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=10001
+      method: PUT
+    response:
+      status_code: 400
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+        error : "InvalidPartNumber"
+
+  # Fix Later
+  - name: Upload Object Part1 - MD5 Mismatch
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: PUT
+    response:
+      status_code: 400
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+        error : "InvalidBucket"
+
+  # Fix Later
+  - name: Upload Object Part1 - Length Mismatch
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: PUT
+    response:
+      status_code: 400
+      body:
+        md5 : 'Fill in later'
+        length : !anyint
+        partNumber : 1
+        error : "LengthMismatched"
+
+# Complete Upload
+stages:
+  - name: Complete Upload
+    request:
+      url: http://localhost:8080/ctest/test.jpg?complete
+      method: POST
+    response:
+      status_code: 200
+
+  - name: Complete Upload - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?complete
+      method: POST
+    response:
+      status_code: 
+        
+# How to download?
+stages:
+  - name: Download
+    request:
+      url: http://localhost:8080/ctest/test.jpg
+      method: GET
+    response:
+      status_code: 200
+
+  - name: Download - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg
+      method: GET
+    response:
+      status_code: 404
+
+#Update Metadata
+stages:
+  - name: Update Metadata
+    request:
+      url: http://localhost:8080/ctest/test.jpg?metadata&key=testkey
+      # add body request
+      method: PUT
+    response:
+      status_code: 200
+
+  - name: Complete Upload - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?metadata&key=testkey
+      # add body request
+      method: PUT
+    response:
+      status_code: 404
+
+#Get Metadata By key
+stages:
+  - name: Get Metadata By Key
+    request:
+      url: http://localhost:8080/ctest/test.jpg?metadata&key=testkey
+      # add body request
+      method: GET
+    response:
+      status_code: 200
+
+  - name: Get Metadata By Key - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?metadata&key=testkey
+      # add body request
+      method: GET
+    response:
+      status_code: 404
+
+#Get Object Metadata
+stages:
+  - name: Update Metadata
+    request:
+      url: http://localhost:8080/ctest/test.jpg?metadata
+      method: GET
+    response:
+      status_code: 200
+
+  - name: Complete Upload - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?metadata
+      method: GET
+    response:
+      status_code: 404
+
+# DELETE Metadata
+stages:
+  - name: Delete Metadata
+    request:
+      url: http://localhost:8080/ctest/test.jpg?metadata&key=testkey
+      # add body request
+      method: DELETE
+    response:
+      status_code: 200
+
+  - name: Delete Metadata - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?metadata&key=testkey
+      # add body request
+      method: DELETE
+    response:
+      status_code: 404
+
+# DELETE PART
+stages:
+  - name: Delete part by partNumber
+    request:
+      url: http://localhost:8080/ctest/test.jpg?partNumber=1
+      method: DELETE
+    response:
+      status_code: 200
+
+  - name: Delete part by partNumber - Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?partNumber=1
+      method: DELETE
+    response:
+      status_code: 400
+
+
+# DELETE OBJECT
+stages:
+  - name: Delete Object
+    request:
+      url: http://localhost:8080/ctest/test.jpg?delete
+      method: DELETE
+    response:
+      status_code: 200
+
+  - name: Delete- Not Found
+    request:
+      url: http://localhost:8080/notfound/404.jpg?delete
+      method: DELETE
+    response:
+      status_code: 400
+
+# DELETE BUCKET
+stages:
+  - name : Delete Bucket
+    request:
+      url: http://localhost:8080/ctest
+      params:
+        delete: ""
+      method : DELETE
+    response:
+      status_code: 200
+
+  - name : Delete Bucket that does not exist
+    request:
+      url: http://localhost:8080/ctest
+      params:
+        delete: ""
+      method : DELETE
+    response:
+      status_code: 400
+
+
+
+
