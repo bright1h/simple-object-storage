@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 
 @RestController
@@ -30,7 +31,9 @@ public class BucketController {
             return ResponseEntity.badRequest().body(null);
         }
 
-        return ResponseEntity.ok(bucketService.create(bucketName));
+        HashMap<String,Object> responseJSON = bucketService.create(bucketName);
+        if (responseJSON==null)return ResponseEntity.badRequest().body(null);
+        return ResponseEntity.ok(responseJSON);
     }
 
     @RequestMapping(method = RequestMethod.DELETE, value = "/{bucketName}")

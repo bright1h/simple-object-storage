@@ -8,4 +8,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface BucketRepository extends MongoRepository<Bucket,String> {
     public Bucket findBucketByBucketName(String bucketName);
+    public boolean existsByBucketName(String bucketName);
 }

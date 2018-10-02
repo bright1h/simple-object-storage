@@ -1,21 +1,26 @@
 package io.backend.project0.controller;
 
-import io.backend.project0.entity.ObjectStored;
 import io.backend.project0.entity.ObjectPart;
-import io.backend.project0.repository.ObjectStoredRepository;
+import io.backend.project0.entity.ObjectStored;
 import io.backend.project0.service.BucketService;
-import io.backend.project0.service.ObjectStoredService;
 import io.backend.project0.service.ObjectPartService;
+import io.backend.project0.service.ObjectStoredService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.http.HttpServletRequest;
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 
 @RestController
 public class ObjectController {
@@ -47,6 +52,7 @@ public class ObjectController {
 
     ){
         if(!bucketService.isBucketNameExist(bucketName))return ResponseEntity.badRequest().body(null);
+        if(!objectStoredService.validateObjectName(objectName))return ResponseEntity.badRequest().body(null);
         ObjectStored objectStored = objectStoredService.createTicket(objectName,bucketName);
         if(objectStored ==null)return ResponseEntity.badRequest().body(null);
         return ResponseEntity.ok(null);
@@ -119,6 +125,8 @@ public class ObjectController {
     ){
         HashMap<String, Object> responseJSON = new HashMap<>();
         responseJSON.put("name",objectName);
+        responseJSON.put("eTag",null);
+        responseJSON.put("length",null);
         if (!objectStoredService.validateObjectName(objectName)){
             responseJSON.put("error","InvalidObjectName");
             return ResponseEntity.badRequest().body(responseJSON);
@@ -133,8 +141,9 @@ public class ObjectController {
         }
 
         ObjectStored objectStored = objectStoredService.complete(objectName,bucketName);
-        if (objectStored==null)ResponseEntity.badRequest().body("UnexpectedError");
+        if (objectStored==null)return ResponseEntity.badRequest().body(responseJSON);
         responseJSON.put("eTag",objectStored.geteTag());
+        responseJSON.put("length",objectStored.getSize());
 
         return ResponseEntity.ok(responseJSON);
     }

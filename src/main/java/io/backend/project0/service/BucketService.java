@@ -2,7 +2,6 @@ package io.backend.project0.service;
 
 import io.backend.project0.StorageDir;
 import io.backend.project0.entity.Bucket;
-import io.backend.project0.entity.ObjectPart;
 import io.backend.project0.entity.ObjectStored;
 import io.backend.project0.repository.BucketRepository;
 import io.backend.project0.repository.ObjectPartRepository;
@@ -11,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -37,6 +37,8 @@ public class BucketService {
         HashMap<String,Object> details = new HashMap<>();
         long createdTime = System.currentTimeMillis();
         Bucket bucket = new Bucket(createdTime, createdTime,bucketName);
+        //recheck for spamming
+        if (isBucketNameExist(bucketName))return null;
         bucketRepository.save(bucket);
         new File(StorageDir.storage + '/'+bucketName).mkdirs();
 
@@ -49,21 +51,15 @@ public class BucketService {
 
     public void delete(String bucketName){
         Bucket b = bucketRepository.findBucketByBucketName(bucketName);
-        bucketRepository.delete(b);
-        objectStoredRepository.deleteAllByBucketName(bucketName);
-        objectPartRepository.deleteAllByBucketName(bucketName);
-
-        //Waste time
-//        new File(StorageDir.storage + '/'+bucketName).delete();
-
+        if(b!=null) {
+            bucketRepository.delete(b);
+            objectStoredRepository.deleteAllByBucketName(bucketName);
+            objectPartRepository.deleteAllByBucketName(bucketName);
+        }
     }
 
-//    public Bucket getBucket(String bucketName){
-//        return bucketRepository.findBucketByBucketName(bucketName);
-//    }
-
     public boolean isBucketNameExist(String bucketName){
-        return bucketRepository.existsById(bucketName);
+        return bucketRepository.existsByBucketName(bucketName);
     }
 
     public boolean validateBucketName(String bucketName){
@@ -78,7 +74,16 @@ public class BucketService {
             details.put("created",bucket.getCreated());
             details.put("modified",bucket.getModified());
             details.put("name",bucket.getBucketName());
-            List<ObjectStored> objectStoreds = objectStoredRepository.findAllByBucketName(bucketName);
+            List<HashMap<String, Object>> objectStoreds = new ArrayList<>();
+            for (ObjectStored object : objectStoredRepository.findAllByBucketName(bucketName)){
+                HashMap<String, Object> objectDetail = new HashMap<>();
+                objectDetail.put("created",object.getCreated());
+                objectDetail.put("modified",object.getModified());
+                objectDetail.put("eTag", object.geteTag());
+                objectDetail.put("name",object.getObjectName());
+                objectStoreds.add(objectDetail);
+            }
+
             details.put("objects",objectStoreds);
         }
 

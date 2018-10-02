@@ -11,8 +11,6 @@ public interface ObjectStoredRepository extends MongoRepository<ObjectStored,Str
 
     public ObjectStored findByObjectNameAndBucketName(String objectName,String bucketName);
 
-//    public ObjectStored findObjectStoredByObjectNameAndBucketName(String objectName, String bucketName);
-
     public boolean existsByObjectNameAndBucketName(String objectName,String bucketName);
 
     public void deleteAllByBucketName(String bucketName);

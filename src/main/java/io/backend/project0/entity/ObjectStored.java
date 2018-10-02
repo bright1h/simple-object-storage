@@ -2,20 +2,17 @@ package io.backend.project0.entity;
 
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
-//import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.HashMap;
-import java.util.List;
 
-//import javax.persistence.*;
-//import java.util.HashMap;
-//import java.util.List;
 
 @Document
 public class ObjectStored {
 
     @Id
+    private ObjectId _id;
+
     private String objectName;
     private long created;
     private long modified;
