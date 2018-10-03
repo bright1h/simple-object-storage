@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -263,7 +264,7 @@ public class ObjectController {
         if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
         HashMap<String, Object> responseJSON = new HashMap<>();
         String ret = objectStoredService.getMetadata(objectName,bucketName,key);
-        if(ret != "") responseJSON.put(key,ret);
+        if(!ret.equals("")) responseJSON.put(key,ret);
         return ResponseEntity.ok(responseJSON);
     }
 
@@ -276,6 +277,32 @@ public class ObjectController {
     ){
         if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(objectStoredService.getAllMetadata(objectName,bucketName));
+    }
+
+    //Milestone 3
+    @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}")
+    public void displayGIF(
+            @PathVariable String bucketName,
+            @PathVariable String objectName,
+            HttpServletResponse response
+    ) throws IOException {
+
+        ObjectStored objectStored = objectStoredService.getObject(objectName, bucketName);
+
+        if (objectStored != null && objectStored.isComplete()) {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            List<ObjectPart> objectParts = objectPartService.getPartsByBucketNameAndObjectName(bucketName, objectName);
+            objectParts.sort(Comparator.comparingInt(ObjectPart::getPartNumber));
+
+            for (ObjectPart op : objectParts) {
+                InputStream inputstream = new FileInputStream(op.getPath());
+                outputStream.write(IOUtils.toByteArray(inputstream));
+            }
+            response.setContentType("image/gif");
+            response.getOutputStream().write(outputStream.toByteArray());
+
+            response.getOutputStream().close();
+        }
     }
 
 }
