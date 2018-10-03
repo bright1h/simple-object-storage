@@ -280,10 +280,11 @@ public class ObjectController {
     }
 
     //Milestone 3
-    @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}")
+    @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}",params = "display")
     public void displayGIF(
             @PathVariable String bucketName,
             @PathVariable String objectName,
+            @RequestParam(required = true) String display,
             HttpServletResponse response
     ) throws IOException {
 
