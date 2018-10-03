@@ -31,14 +31,19 @@ public class ObjectPartService {
         ObjectStored objectStored = objectStoredRepository.findByObjectNameAndBucketName(objectName,bucketName);
         if(!objectStored.isComplete()) {
             String[] splittedName = objectName.split("\\.");
-            String partName = splittedName[0] + '-' + partNumber;
-            String path = StorageDir.storage + '/' + bucketName + '/' +partName ;
+            StringBuilder partName = new StringBuilder();
+            for(String str : splittedName){
+                partName.append(str);
+                partName.append("-");
+            }
+            partName.append(partNumber);
+            String path = StorageDir.storage + '/' + bucketName + '/' +partName.toString() ;
 
             ObjectPart objectPart = objectPartRepository.findByBucketNameAndObjectNameAndPartNumber(bucketName,objectName,partNumber);
             if(objectPart !=null){
                 objectPartRepository.delete(objectPart);
             }
-            objectPart = new ObjectPart(partName, partSize, partMd5, partNumber, path, bucketName, objectName);
+            objectPart = new ObjectPart(partName.toString(), partSize, partMd5, partNumber, path, bucketName, objectName);
 
             Path fileNameAndPath = Paths.get(path);
             try {
