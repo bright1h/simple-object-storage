@@ -299,7 +299,7 @@ public class ObjectController {
                 InputStream inputstream = new FileInputStream(op.getPath());
                 outputStream.write(IOUtils.toByteArray(inputstream));
             }
-            String contentType = objectStored.getMetadata().get("Content-type");
+            String contentType = objectStored.getMetadata().get("content-type");
             if (contentType !=null) response.setContentType(contentType);
             response.getOutputStream().write(outputStream.toByteArray());
             response.getOutputStream().close();

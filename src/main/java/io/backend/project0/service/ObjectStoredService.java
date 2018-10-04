@@ -102,7 +102,8 @@ public class ObjectStoredService {
         ObjectStored objectStored = objectStoredRepository.findByObjectNameAndBucketName(objectName,bucketName);
         if (objectStored!=null) {
             HashMap<String, String> metadata = objectStored.getMetadata();
-            metadata.put(key, value);
+            String lowerCaseKey = key.toLowerCase();
+            metadata.put(lowerCaseKey, value);
             objectStored.setMetadata(metadata);
             objectStoredRepository.save(objectStored);
         }
