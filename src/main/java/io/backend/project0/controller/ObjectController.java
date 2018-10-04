@@ -281,7 +281,7 @@ public class ObjectController {
 
     //Milestone 3
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}",params = "display")
-    public void displayGIF(
+    public void requestFile(
             @PathVariable String bucketName,
             @PathVariable String objectName,
             @RequestParam(required = true) String display,
@@ -299,9 +299,9 @@ public class ObjectController {
                 InputStream inputstream = new FileInputStream(op.getPath());
                 outputStream.write(IOUtils.toByteArray(inputstream));
             }
-            response.setContentType("image/gif");
+            String contentType = objectStored.getMetadata().get("Content-type");
+            if (contentType !=null) response.setContentType(contentType);
             response.getOutputStream().write(outputStream.toByteArray());
-
             response.getOutputStream().close();
         }
     }
