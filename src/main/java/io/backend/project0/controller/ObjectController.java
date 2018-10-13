@@ -185,52 +185,57 @@ public class ObjectController {
         ObjectStored objectStored = objectStoredService.getObject(objectName,bucketName);
 
         if(objectStored != null && objectStored.isComplete()){
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
             List<ObjectPart> objectParts = objectPartService.getPartsByBucketNameAndObjectName(bucketName,objectName);
             objectParts.sort(Comparator.comparingInt(ObjectPart::getPartNumber));
-
             List<InputStream> neededFile = new ArrayList<>();
 
             String range = request.getHeader("range");
+            long from = 0;
+            long to = objectStored.getSize();
             if(range==null) range = "0-"+objectStored.getSize();
             else{
                 String[] r = range.split("-");
                 if(r.length ==2){
-                    long from = Long.parseLong(r[0]);
-                    long to = Long.parseLong(r[1]);
+                    from = Long.parseLong(r[0]);
+                    to = Long.parseLong(r[1]);
                     if (to<from || from<0 || from> objectStored.getSize() || to>objectStored.getSize() )response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                    long curTotalSize = 0;
-                    for(ObjectPart op : objectParts){
-                        if(curTotalSize>to) break;
-                        InputStream inputstream = new FileInputStream(op.getPath());
-                        long boundedSize = op.getPartSize();
-                        if(curTotalSize+op.getPartSize()<from) {
-                            long skip = inputstream.skip(from-curTotalSize);
-                            boundedSize += curTotalSize-from;
-                        }
-                        if(curTotalSize+op.getPartSize()>to){
-                            boundedSize = to-curTotalSize;
-                        }
-
-                        BoundedInputStream boundedInputStream = new BoundedInputStream(inputstream, boundedSize+1);
-                        neededFile.add(boundedInputStream);
-                        curTotalSize += op.getPartSize();
-                    }
                 }else{
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 }
-
             }
 
-            SequenceInputStream sequenceInputStream = new SequenceInputStream(Collections.enumeration(neededFile));
+            long curTotalSize = 0;
+            for(ObjectPart op : objectParts){
+                if(curTotalSize>to) break;
+                InputStream inputstream = new FileInputStream(op.getPath());
+                long boundedSize = op.getPartSize();
+                if(curTotalSize<from && curTotalSize+op.getPartSize()>=from) {
+                    long skip = inputstream.skip(from-curTotalSize);
+                    if(curTotalSize+op.getPartSize()>to) {
+                        boundedSize = to - from;
+                    }
+                    else boundedSize += curTotalSize-from;
+                }
+                else if(curTotalSize+op.getPartSize()>to){
+                    boundedSize = to-curTotalSize;
+                }
+
+                BoundedInputStream boundedInputStream = new BoundedInputStream(inputstream, boundedSize);
+                neededFile.add(boundedInputStream);
+                curTotalSize += op.getPartSize();
+            }
+
+            if(objectStored.getMetadata().containsKey("content-type"))
+                response.setHeader(HttpHeaders.CONTENT_TYPE,objectStored.getMetadata().get("content-type"));
+
             response.setHeader(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + objectStored.getObjectName()+"\"");
             response.setHeader(HttpHeaders.ACCEPT_RANGES,range);
             response.setHeader("eTag", objectStored.geteTag());
+            SequenceInputStream sequenceInputStream = new SequenceInputStream(Collections.enumeration(neededFile));
             IOUtils.copyLarge(sequenceInputStream,response.getOutputStream());
             response.getOutputStream().close();
-
         }
-        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        else response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
     @RequestMapping(method = RequestMethod.PUT,value = "/{bucketName}/{objectName}",params = {"metadata","key"})
