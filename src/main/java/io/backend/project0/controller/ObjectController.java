@@ -7,6 +7,7 @@ import io.backend.project0.service.ObjectPartService;
 import io.backend.project0.service.ObjectStoredService;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -14,14 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 @RestController
 public class ObjectController {
@@ -179,10 +174,12 @@ public class ObjectController {
 
     @RequestMapping(method = RequestMethod.GET,value = "/{bucketName}/{objectName}")
     @ResponseBody
-    public ResponseEntity downloadObject(
+    public void downloadObject(
             @PathVariable String bucketName,
             @PathVariable String objectName,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
+
     ) throws IOException {
 
         ObjectStored objectStored = objectStoredService.getObject(objectName,bucketName);
@@ -192,35 +189,48 @@ public class ObjectController {
             List<ObjectPart> objectParts = objectPartService.getPartsByBucketNameAndObjectName(bucketName,objectName);
             objectParts.sort(Comparator.comparingInt(ObjectPart::getPartNumber));
 
-            for(ObjectPart op : objectParts){
-                InputStream inputstream = new FileInputStream(op.getPath());
-                outputStream.write(IOUtils.toByteArray(inputstream));
-            }
+            List<InputStream> neededFile = new ArrayList<>();
 
             String range = request.getHeader("range");
-            byte[] bytes = outputStream.toByteArray();
-            if(range==null) range = "0-"+bytes.length;
+            if(range==null) range = "0-"+objectStored.getSize();
             else{
                 String[] r = range.split("-");
                 if(r.length ==2){
-                    int from = Integer.parseInt(r[0]);
-                    int to = Integer.parseInt(r[1]);
-                    if (to<from || from<0 || from> bytes.length || to>bytes.length )return ResponseEntity.badRequest().body("Invalid Range");
-                    bytes = Arrays.copyOfRange(bytes,from,to+1);
+                    long from = Long.parseLong(r[0]);
+                    long to = Long.parseLong(r[1]);
+                    if (to<from || from<0 || from> objectStored.getSize() || to>objectStored.getSize() )response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    long curTotalSize = 0;
+                    for(ObjectPart op : objectParts){
+                        if(curTotalSize>to) break;
+                        InputStream inputstream = new FileInputStream(op.getPath());
+                        long boundedSize = op.getPartSize();
+                        if(curTotalSize+op.getPartSize()<from) {
+                            long skip = inputstream.skip(from-curTotalSize);
+                            boundedSize += curTotalSize-from;
+                        }
+                        if(curTotalSize+op.getPartSize()>to){
+                            boundedSize = to-curTotalSize;
+                        }
 
+                        BoundedInputStream boundedInputStream = new BoundedInputStream(inputstream, boundedSize+1);
+                        neededFile.add(boundedInputStream);
+                        curTotalSize += op.getPartSize();
+                    }
                 }else{
-                    return ResponseEntity.badRequest().body("Invalid Range");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 }
 
             }
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + objectStored.getObjectName()+"\"")
-                    .header(HttpHeaders.ACCEPT_RANGES,range)
-                    .contentLength(bytes.length)
-                    .eTag(objectStored.geteTag())
-                    .body(bytes);
+
+            SequenceInputStream sequenceInputStream = new SequenceInputStream(Collections.enumeration(neededFile));
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + objectStored.getObjectName()+"\"");
+            response.setHeader(HttpHeaders.ACCEPT_RANGES,range);
+            response.setHeader("eTag", objectStored.geteTag());
+            IOUtils.copyLarge(sequenceInputStream,response.getOutputStream());
+            response.getOutputStream().close();
+
         }
-        return ResponseEntity.notFound().build();
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
     @RequestMapping(method = RequestMethod.PUT,value = "/{bucketName}/{objectName}",params = {"metadata","key"})
