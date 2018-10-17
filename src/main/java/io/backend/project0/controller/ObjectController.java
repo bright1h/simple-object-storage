@@ -205,25 +205,27 @@ public class ObjectController {
             }
 
             long curTotalSize = 0;
-            for(ObjectPart op : objectParts){
-                if(curTotalSize>to) break;
+            for(ObjectPart op : objectParts) {
+                if (curTotalSize > to) break;
                 InputStream inputstream = new FileInputStream(op.getPath());
                 long boundedSize = op.getPartSize();
-                if(curTotalSize<from && curTotalSize+op.getPartSize()>=from) {
-                    long skip = inputstream.skip(from-curTotalSize);
-                    if(curTotalSize+op.getPartSize()>to) {
-                        boundedSize = to - from;
+                if (curTotalSize + op.getPartSize() >= from) {
+                    if (curTotalSize < from) {
+                        long skip = inputstream.skip(from - curTotalSize);
+                        if (curTotalSize + op.getPartSize() > to) {
+                            boundedSize = to - from;
+                        } else {
+                            boundedSize += curTotalSize - from;
+                        }
+                    } else if (curTotalSize + op.getPartSize() > to) {
+                        boundedSize = to - curTotalSize;
                     }
-                    else boundedSize += curTotalSize-from;
+                    BoundedInputStream boundedInputStream = new BoundedInputStream(inputstream, boundedSize+1);
+                    neededFile.add(boundedInputStream);
                 }
-                else if(curTotalSize+op.getPartSize()>to){
-                    boundedSize = to-curTotalSize;
-                }
-
-                BoundedInputStream boundedInputStream = new BoundedInputStream(inputstream, boundedSize);
-                neededFile.add(boundedInputStream);
                 curTotalSize += op.getPartSize();
             }
+
 
             if(objectStored.getMetadata().containsKey("content-type"))
                 response.setHeader(HttpHeaders.CONTENT_TYPE,objectStored.getMetadata().get("content-type"));
@@ -232,7 +234,9 @@ public class ObjectController {
             response.setHeader(HttpHeaders.ACCEPT_RANGES,range);
             response.setHeader("eTag", objectStored.geteTag());
             SequenceInputStream sequenceInputStream = new SequenceInputStream(Collections.enumeration(neededFile));
-            IOUtils.copyLarge(sequenceInputStream,response.getOutputStream());
+            byte[] bytes= IOUtils.toByteArray(sequenceInputStream);
+            response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.length));
+            response.getOutputStream().write(bytes);
             response.getOutputStream().close();
         }
         else response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -264,6 +268,7 @@ public class ObjectController {
 
     ){
         if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
+        key = key.toLowerCase();
         objectStoredService.deleteMetadata(objectName,bucketName,key);
         return ResponseEntity.ok(null);
     }
@@ -278,6 +283,7 @@ public class ObjectController {
     ){
         if(!objectStoredService.isObjectExist(objectName,bucketName)) return ResponseEntity.notFound().build();
         HashMap<String, Object> responseJSON = new HashMap<>();
+        key = key.toLowerCase();
         String ret = objectStoredService.getMetadata(objectName,bucketName,key);
         if(!ret.equals("")) responseJSON.put(key,ret);
         return ResponseEntity.ok(responseJSON);
